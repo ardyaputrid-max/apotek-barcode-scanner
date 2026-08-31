@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Scanner Barcode Apotek</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 8px 0;
+    }
+
+    p {
+      line-height: 1.5;
+      color: #666;
+    }
+
+    #reader {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 12px;
+      background: #000;
+      margin-top: 16px;
+    }
+
+    button {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #1a73e8;
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #666;
+    }
+
+    button.danger {
+      background: #c62828;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 12px;
+      background: #e8f5e9;
+      color: #1b5e20;
+      line-height: 1.5;
+    }
+
+    .status.error {
+      background: #ffebee;
+      color: #b71c1c;
+    }
+
+    .status.warning {
+      background: #fff8e1;
+      color: #8d6e00;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    input {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #777;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="card">
+    <h1>Scanner Barcode Apotek</h1>
+
+    <p>
+      Arahkan kamera belakang HP ke barcode obat.
+      Setelah barcode terbaca, halaman akan otomatis
+      kembali ke aplikasi apotek.
+    </p>
+
+    <div id="status" class="status">
+      Menyiapkan scanner...
+    </div>
+  </div>
+
+  <div class="card">
+
+    <div id="reader"></div>
+
+    <button
+      id="startButton"
+      type="button"
+      onclick="startScanner()"
+    >
+      Mulai Kamera
+    </button>
+
+    <button
+      id="stopButton"
+      type="button"
+      class="danger"
+      onclick="stopScanner()"
+    >
+      Tutup Kamera
+    </button>
+
+    <div class="small" style="margin-top:10px;">
+      Jika kamera tidak dapat digunakan, gunakan barcode manual di bawah.
+    </div>
+
+  </div>
+
+  <div class="card">
+
+    <strong>Input Manual</strong>
+
+    <input
+      id="manualBarcode"
+      type="text"
+      inputmode="text"
+      maxlength="100"
+      placeholder="Contoh: 8991234567890"
+    >
+
+    <button
+      type="button"
+      onclick="kirimBarcodeManual()"
+    >
+      Gunakan Barcode Ini
+    </button>
+
+  </div>
+
+</div>
+
+<script>
+
+  let scanner = null;
+  let running = false;
+  let locked = false;
+
+  // =========================================================
+  // AMBIL URL KEMBALI DARI PARAMETER ?return=
+  // =========================================================
+
+  const params = new URLSearchParams(window.location.search);
+
+  const returnUrl = params.get('return');
+
+  // =========================================================
+  // STATUS
+  // =========================================================
+
+  function setStatus(message, type) {
+
+    const element = document.getElementById('status');
+
+    element.textContent = message || '';
+
+    element.className = 'status';
+
+    if (type === 'error') {
+      element.classList.add('error');
+    }
+
+    if (type === 'warning') {
+      element.classList.add('warning');
+    }
+  }
+
+  // =========================================================
+  // VALIDASI BARCODE
+  // =========================================================
+
+  function validateBarcode(barcode) {
+
+    if (typeof barcode !== 'string') {
+      return false;
+    }
+
+    barcode = barcode.trim();
+
+    if (!barcode) {
+      return false;
+    }
+
+    if (barcode.length > 100) {
+      return false;
+    }
+
+    if (!/^[A-Za-z0-9._\-\/]+$/.test(barcode)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // =========================================================
+  // START SCANNER
+  // =========================================================
+
+  async function startScanner() {
+
+    if (running) {
+      return;
+    }
+
+    locked = false;
+
+    if (!returnUrl) {
+
+      setStatus(
+        'URL kembali aplikasi tidak ditemukan.',
+        'error'
+      );
+
+      return;
+    }
+
+    if (typeof Html5Qrcode === 'undefined') {
+
+      setStatus(
+        'Library scanner gagal dimuat. Periksa koneksi internet.',
+        'error'
+      );
+
+      return;
+    }
+
+    try {
+
+      scanner = new Html5Qrcode('reader');
+
+      const config = {
+        fps: 10,
+        qrbox: {
+          width: 280,
+          height: 140
+        }
+      };
+
+      setStatus(
+        'Meminta izin kamera...',
+        null
+      );
+
+      await scanner.start(
+        {
+          facingMode: 'environment'
+        },
+        config,
+        onScanSuccess,
+        onScanError
+      );
+
+      running = true;
+
+      setStatus(
+        'Kamera aktif. Arahkan ke barcode obat.',
+        null
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      running = false;
+
+      setStatus(
+        'Kamera tidak dapat dibuka. Pastikan izin kamera diberikan dan halaman dibuka melalui HTTPS.',
+        'error'
+      );
+
+    }
+  }
+
+  // =========================================================
+  // SCAN SUCCESS
+  // =========================================================
+
+  function onScanSuccess(decodedText, decodedResult) {
+
+    if (locked) {
+      return;
+    }
+
+    const barcode = String(decodedText || '').trim();
+
+    if (!validateBarcode(barcode)) {
+
+      setStatus(
+        'Barcode terbaca tetapi formatnya tidak valid.',
+        'error'
+      );
+
+      return;
+    }
+
+    locked = true;
+
+    setStatus(
+      'Barcode terbaca: ' + barcode + '. Kembali ke aplikasi...',
+      null
+    );
+
+    redirectWithBarcode(barcode);
+  }
+
+  // =========================================================
+  // SCAN ERROR
+  // =========================================================
+
+  function onScanError(errorMessage) {
+    // Sengaja tidak menampilkan error per frame.
+  }
+
+  // =========================================================
+  // MANUAL BARCODE
+  // =========================================================
+
+  function kirimBarcodeManual() {
+
+    const input = document.getElementById('manualBarcode');
+
+    const barcode = String(input.value || '').trim();
+
+    if (!validateBarcode(barcode)) {
+
+      setStatus(
+        'Barcode manual tidak valid.',
+        'error'
+      );
+
+      input.focus();
+
+      return;
+    }
+
+    redirectWithBarcode(barcode);
+  }
+
+  // =========================================================
+  // REDIRECT KE APLIKASI APOTEK
+  // =========================================================
+
+  async function redirectWithBarcode(barcode) {
+
+    try {
+
+      await stopScanner();
+
+    } catch (error) {
+
+      console.warn(
+        'Scanner stop warning:',
+        error
+      );
+
+    }
+
+    /*
+      Gunakan URL fragment (#barcode=...)
+
+      Keuntungan:
+      - tidak dikirim ke server GitHub
+      - tidak membutuhkan API
+      - tidak membutuhkan CORS
+      - Apps Script dapat membaca fragment dari JavaScript
+    */
+
+    const cleanReturnUrl =
+      returnUrl.split('#')[0];
+
+    const target =
+      cleanReturnUrl +
+      '#barcode=' +
+      encodeURIComponent(barcode);
+
+    window.location.href = target;
+  }
+
+  // =========================================================
+  // STOP CAMERA
+  // =========================================================
+
+  async function stopScanner() {
+
+    if (!scanner || !running) {
+      return;
+    }
+
+    try {
+
+      await scanner.stop();
+
+    } catch (error) {
+
+      console.warn(
+        'Gagal stop scanner:',
+        error
+      );
+
+    }
+
+    try {
+
+      scanner.clear();
+
+    } catch (error) {
+
+      console.warn(
+        'Gagal clear scanner:',
+        error
+      );
+
+    }
+
+    scanner = null;
+    running = false;
+
+    const reader =
+      document.getElementById('reader');
+
+    if (reader) {
+      reader.innerHTML = '';
+    }
+  }
+
+  // =========================================================
+  // AUTO START
+  // =========================================================
+
+  window.addEventListener(
+    'load',
+    function() {
+
+      if (!returnUrl) {
+
+        setStatus(
+          'Halaman scanner dibuka tanpa URL kembali aplikasi.',
+          'warning'
+        );
+
+        return;
+      }
+
+      startScanner();
+    }
+  );
+
+</script>
+
+</body>
+</html>
