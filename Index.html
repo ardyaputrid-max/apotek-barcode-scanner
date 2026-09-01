@@ -2,12 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scanner Barcode Apotek</title>
 
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -193,24 +188,14 @@
   let running = false;
   let locked = false;
 
-  // =========================================================
   // AMBIL URL KEMBALI DARI PARAMETER ?return=
-  // =========================================================
-
   const params = new URLSearchParams(window.location.search);
-
   const returnUrl = params.get('return');
 
-  // =========================================================
   // STATUS
-  // =========================================================
-
   function setStatus(message, type) {
-
     const element = document.getElementById('status');
-
     element.textContent = message || '';
-
     element.className = 'status';
 
     if (type === 'error') {
@@ -222,12 +207,8 @@
     }
   }
 
-  // =========================================================
   // VALIDASI BARCODE
-  // =========================================================
-
   function validateBarcode(barcode) {
-
     if (typeof barcode !== 'string') {
       return false;
     }
@@ -249,12 +230,8 @@
     return true;
   }
 
-  // =========================================================
   // START SCANNER
-  // =========================================================
-
   async function startScanner() {
-
     if (running) {
       return;
     }
@@ -262,27 +239,22 @@
     locked = false;
 
     if (!returnUrl) {
-
       setStatus(
         'URL kembali aplikasi tidak ditemukan.',
         'error'
       );
-
       return;
     }
 
     if (typeof Html5Qrcode === 'undefined') {
-
       setStatus(
         'Library scanner gagal dimuat. Periksa koneksi internet.',
         'error'
       );
-
       return;
     }
 
     try {
-
       scanner = new Html5Qrcode('reader');
 
       const config = {
@@ -293,15 +265,10 @@
         }
       };
 
-      setStatus(
-        'Meminta izin kamera...',
-        null
-      );
+      setStatus('Meminta izin kamera...', null);
 
       await scanner.start(
-        {
-          facingMode: 'environment'
-        },
+        { facingMode: 'environment' },
         config,
         onScanSuccess,
         onScanError
@@ -309,31 +276,20 @@
 
       running = true;
 
-      setStatus(
-        'Kamera aktif. Arahkan ke barcode obat.',
-        null
-      );
+      setStatus('Kamera aktif. Arahkan ke barcode obat.', null);
 
     } catch (error) {
-
       console.error(error);
-
       running = false;
-
       setStatus(
         'Kamera tidak dapat dibuka. Pastikan izin kamera diberikan dan halaman dibuka melalui HTTPS.',
         'error'
       );
-
     }
   }
 
-  // =========================================================
   // SCAN SUCCESS
-  // =========================================================
-
   function onScanSuccess(decodedText, decodedResult) {
-
     if (locked) {
       return;
     }
@@ -341,12 +297,10 @@
     const barcode = String(decodedText || '').trim();
 
     if (!validateBarcode(barcode)) {
-
       setStatus(
         'Barcode terbaca tetapi formatnya tidak valid.',
         'error'
       );
-
       return;
     }
 
@@ -360,147 +314,78 @@
     redirectWithBarcode(barcode);
   }
 
-  // =========================================================
   // SCAN ERROR
-  // =========================================================
-
   function onScanError(errorMessage) {
     // Sengaja tidak menampilkan error per frame.
   }
 
-  // =========================================================
   // MANUAL BARCODE
-  // =========================================================
-
   function kirimBarcodeManual() {
-
     const input = document.getElementById('manualBarcode');
-
     const barcode = String(input.value || '').trim();
 
     if (!validateBarcode(barcode)) {
-
-      setStatus(
-        'Barcode manual tidak valid.',
-        'error'
-      );
-
+      setStatus('Barcode manual tidak valid.', 'error');
       input.focus();
-
       return;
     }
 
     redirectWithBarcode(barcode);
   }
 
-  // =========================================================
   // REDIRECT KE APLIKASI APOTEK
-  // =========================================================
-
   async function redirectWithBarcode(barcode) {
-
     try {
-
       await stopScanner();
-
     } catch (error) {
-
-      console.warn(
-        'Scanner stop warning:',
-        error
-      );
-
+      console.warn('Scanner stop warning:', error);
     }
 
-    /*
-      Gunakan URL fragment (#barcode=...)
-
-      Keuntungan:
-      - tidak dikirim ke server GitHub
-      - tidak membutuhkan API
-      - tidak membutuhkan CORS
-      - Apps Script dapat membaca fragment dari JavaScript
-    */
-
-    const cleanReturnUrl =
-      returnUrl.split('#')[0];
-
-    const target =
-      cleanReturnUrl +
-      '#barcode=' +
-      encodeURIComponent(barcode);
+    const cleanReturnUrl = returnUrl.split('#')[0];
+    const target = cleanReturnUrl + '#barcode=' + encodeURIComponent(barcode);
 
     window.location.href = target;
   }
 
-  // =========================================================
   // STOP CAMERA
-  // =========================================================
-
   async function stopScanner() {
-
     if (!scanner || !running) {
       return;
     }
 
     try {
-
       await scanner.stop();
-
     } catch (error) {
-
-      console.warn(
-        'Gagal stop scanner:',
-        error
-      );
-
+      console.warn('Gagal stop scanner:', error);
     }
 
     try {
-
       scanner.clear();
-
     } catch (error) {
-
-      console.warn(
-        'Gagal clear scanner:',
-        error
-      );
-
+      console.warn('Gagal clear scanner:', error);
     }
 
     scanner = null;
     running = false;
 
-    const reader =
-      document.getElementById('reader');
-
+    const reader = document.getElementById('reader');
     if (reader) {
       reader.innerHTML = '';
     }
   }
 
-  // =========================================================
   // AUTO START
-  // =========================================================
-
-  window.addEventListener(
-    'load',
-    function() {
-
-      if (!returnUrl) {
-
-        setStatus(
-          'Halaman scanner dibuka tanpa URL kembali aplikasi.',
-          'warning'
-        );
-
-        return;
-      }
-
-      startScanner();
+  window.addEventListener('load', function() {
+    if (!returnUrl) {
+      setStatus(
+        'Halaman scanner dibuka tanpa URL kembali aplikasi.',
+        'warning'
+      );
+      return;
     }
-  );
+
+    startScanner();
+  });
 
 </script>
 
