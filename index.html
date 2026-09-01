@@ -1,13 +1,23 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
+
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
   <title>Scanner Barcode Apotek</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js">
+  </script>
 
   <style>
+
     * {
       box-sizing: border-box;
     }
@@ -40,16 +50,16 @@
     }
 
     p {
-      line-height: 1.5;
       color: #666;
+      line-height: 1.5;
     }
 
     #reader {
       width: 100%;
+      margin-top: 16px;
       overflow: hidden;
       border-radius: 12px;
       background: #000;
-      margin-top: 16px;
     }
 
     button {
@@ -63,7 +73,7 @@
       font-weight: bold;
       cursor: pointer;
       background: #1a73e8;
-      color: #fff;
+      color: white;
     }
 
     button.secondary {
@@ -110,8 +120,12 @@
     .small {
       font-size: 13px;
       color: #777;
+      margin-top: 8px;
+      line-height: 1.5;
     }
+
   </style>
+
 </head>
 
 <body>
@@ -119,18 +133,24 @@
 <div class="container">
 
   <div class="card">
+
     <h1>Scanner Barcode Apotek</h1>
 
     <p>
-      Arahkan kamera belakang HP ke barcode obat.
-      Setelah barcode terbaca, halaman akan otomatis
-      kembali ke aplikasi apotek.
+      Tekan tombol <strong>Mulai Kamera</strong>,
+      berikan izin kamera, lalu arahkan kamera belakang
+      ke barcode obat.
     </p>
 
-    <div id="status" class="status">
-      Menyiapkan scanner...
+    <div
+      id="status"
+      class="status"
+    >
+      Scanner siap.
     </div>
+
   </div>
+
 
   <div class="card">
 
@@ -153,21 +173,23 @@
       Tutup Kamera
     </button>
 
-    <div class="small" style="margin-top:10px;">
-      Jika kamera tidak dapat digunakan, gunakan barcode manual di bawah.
+    <div class="small">
+      Gunakan tombol Mulai Kamera. Jangan membuka kamera
+      otomatis agar browser dapat meminta izin kamera dengan benar.
     </div>
 
   </div>
 
+
   <div class="card">
 
-    <strong>Input Manual</strong>
+    <strong>Input Barcode Manual</strong>
 
     <input
       id="manualBarcode"
       type="text"
-      inputmode="text"
       maxlength="100"
+      inputmode="text"
       placeholder="Contoh: 8991234567890"
     >
 
@@ -182,21 +204,58 @@
 
 </div>
 
+
 <script>
 
-  let scanner = null;
-  let running = false;
-  let locked = false;
+  /*
+   * ==========================================================
+   * WAJIB DIISI
+   * ==========================================================
+   *
+   * Masukkan URL Web App Google Apps Script Anda.
+   *
+   * Contoh:
+   *
+   * https://script.google.com/macros/s/AKfycbxxxxxxxxxxxx/exec
+   */
 
-  // AMBIL URL KEMBALI DARI PARAMETER ?return=
-  const params = new URLSearchParams(window.location.search);
-  const returnUrl = params.get('return');
+  const APP_SCRIPT_URL =
+    'https://script.google.com/macros/s/AKfycbyTFT90DmrTA2Z6YXiwXNqeiXwo1jibxpZ6HK3RLFRbAHGW7lGgOLwKIbWd-3O-kwFHeQ/exec';
 
-  // STATUS
+
+  /*
+   * ==========================================================
+   * GLOBAL
+   * ==========================================================
+   */
+
+  let html5QrCode = null;
+
+  let scannerRunning = false;
+
+  let scanLocked = false;
+
+
+  /*
+   * ==========================================================
+   * STATUS
+   * ==========================================================
+   */
+
   function setStatus(message, type) {
-    const element = document.getElementById('status');
-    element.textContent = message || '';
-    element.className = 'status';
+
+    const element =
+      document.getElementById('status');
+
+    if (!element) {
+      return;
+    }
+
+    element.textContent =
+      message || '';
+
+    element.className =
+      'status';
 
     if (type === 'error') {
       element.classList.add('error');
@@ -207,13 +266,21 @@
     }
   }
 
-  // VALIDASI BARCODE
-  function validateBarcode(barcode) {
+
+  /*
+   * ==========================================================
+   * VALIDASI BARCODE
+   * ==========================================================
+   */
+
+  function validasiBarcode(barcode) {
+
     if (typeof barcode !== 'string') {
       return false;
     }
 
-    barcode = barcode.trim();
+    barcode =
+      barcode.trim();
 
     if (!barcode) {
       return false;
@@ -230,164 +297,407 @@
     return true;
   }
 
-  // START SCANNER
+
+  /*
+   * ==========================================================
+   * MULAI SCANNER
+   * ==========================================================
+   */
+
   async function startScanner() {
-    if (running) {
+
+    if (scannerRunning) {
       return;
     }
 
-    locked = false;
+    scanLocked = false;
 
-    if (!returnUrl) {
+    if (
+      !APP_SCRIPT_URL ||
+      APP_SCRIPT_URL.includes(
+        'GANTI_DENGAN_URL'
+      )
+    ) {
+
       setStatus(
-        'URL kembali aplikasi tidak ditemukan.',
+        'URL Web App Apps Script belum diisi pada scanner GitHub.',
         'error'
       );
+
       return;
     }
+
 
     if (typeof Html5Qrcode === 'undefined') {
+
       setStatus(
-        'Library scanner gagal dimuat. Periksa koneksi internet.',
+        'Library html5-qrcode gagal dimuat. Periksa koneksi internet.',
         'error'
       );
+
       return;
     }
+
 
     try {
-      scanner = new Html5Qrcode('reader');
 
-      const config = {
-        fps: 10,
-        qrbox: {
-          width: 280,
-          height: 140
-        }
-      };
-
-      setStatus('Meminta izin kamera...', null);
-
-      await scanner.start(
-        { facingMode: 'environment' },
-        config,
-        onScanSuccess,
-        onScanError
+      setStatus(
+        'Meminta izin kamera...',
+        null
       );
 
-      running = true;
 
-      setStatus('Kamera aktif. Arahkan ke barcode obat.', null);
+      /*
+       * Buat object baru setiap kali scanner dimulai.
+       */
+
+      html5QrCode =
+        new Html5Qrcode('reader');
+
+
+      /*
+       * Ambil daftar kamera yang tersedia.
+       */
+
+      const cameras =
+        await Html5Qrcode.getCameras();
+
+
+      if (
+        !cameras ||
+        cameras.length === 0
+      ) {
+
+        throw new Error(
+          'Kamera tidak ditemukan pada perangkat.'
+        );
+
+      }
+
+
+      /*
+       * Cari kamera belakang.
+       *
+       * Biasanya label kamera belakang
+       * mengandung back / rear / environment.
+       */
+
+      let selectedCamera =
+        cameras[0];
+
+
+      for (
+        let i = 0;
+        i < cameras.length;
+        i++
+      ) {
+
+        const label =
+          String(
+            cameras[i].label || ''
+          ).toLowerCase();
+
+        if (
+          label.includes('back') ||
+          label.includes('rear') ||
+          label.includes('environment')
+        ) {
+
+          selectedCamera =
+            cameras[i];
+
+          break;
+        }
+
+      }
+
+
+      setStatus(
+        'Kamera ditemukan. Memulai scanner...',
+        null
+      );
+
+
+      await html5QrCode.start(
+
+        selectedCamera.id,
+
+        {
+          fps: 10,
+
+          qrbox: {
+            width: 280,
+            height: 140
+          }
+
+        },
+
+        onScanSuccess,
+
+        onScanFailure
+
+      );
+
+
+      scannerRunning = true;
+
+
+      setStatus(
+        'Kamera aktif. Arahkan ke barcode obat.',
+        null
+      );
+
 
     } catch (error) {
-      console.error(error);
-      running = false;
+
+      console.error(
+        'Camera error:',
+        error
+      );
+
+      scannerRunning = false;
+
+      html5QrCode = null;
+
+
+      let message =
+        'Kamera tidak dapat dibuka.';
+
+
+      if (error && error.message) {
+
+        message +=
+          ' ' + error.message;
+
+      }
+
+
       setStatus(
-        'Kamera tidak dapat dibuka. Pastikan izin kamera diberikan dan halaman dibuka melalui HTTPS.',
+        message,
         'error'
       );
+
     }
+
   }
 
-  // SCAN SUCCESS
-  function onScanSuccess(decodedText, decodedResult) {
-    if (locked) {
+
+  /*
+   * ==========================================================
+   * BARCODE BERHASIL
+   * ==========================================================
+   */
+
+  function onScanSuccess(
+    decodedText,
+    decodedResult
+  ) {
+
+    if (scanLocked) {
       return;
     }
 
-    const barcode = String(decodedText || '').trim();
+    const barcode =
+      String(
+        decodedText || ''
+      ).trim();
 
-    if (!validateBarcode(barcode)) {
+
+    if (!validasiBarcode(barcode)) {
+
       setStatus(
-        'Barcode terbaca tetapi formatnya tidak valid.',
+        'Barcode terbaca tetapi format tidak valid.',
         'error'
       );
+
       return;
     }
 
-    locked = true;
+
+    scanLocked = true;
+
 
     setStatus(
-      'Barcode terbaca: ' + barcode + '. Kembali ke aplikasi...',
+      'Barcode terbaca: ' +
+      barcode +
+      '. Membuka aplikasi...',
       null
     );
 
-    redirectWithBarcode(barcode);
+
+    redirectKeAppScript(barcode);
+
   }
 
-  // SCAN ERROR
-  function onScanError(errorMessage) {
-    // Sengaja tidak menampilkan error per frame.
+
+  /*
+   * ==========================================================
+   * SCAN FAILURE
+   * ==========================================================
+   */
+
+  function onScanFailure(errorMessage) {
+
+    /*
+     * Jangan menampilkan error setiap frame.
+     *
+     * html5-qrcode memang akan sering memanggil
+     * callback ini ketika belum menemukan barcode.
+     */
+
   }
 
-  // MANUAL BARCODE
+
+  /*
+   * ==========================================================
+   * KIRIM BARCODE KE APPS SCRIPT
+   * ==========================================================
+   */
+
+  function redirectKeAppScript(barcode) {
+
+    if (!validasiBarcode(barcode)) {
+
+      setStatus(
+        'Barcode tidak valid.',
+        'error'
+      );
+
+      return;
+    }
+
+
+    const target =
+      APP_SCRIPT_URL +
+      '#barcode=' +
+      encodeURIComponent(barcode);
+
+
+    stopScanner();
+
+
+    window.location.href =
+      target;
+
+  }
+
+
+  /*
+   * ==========================================================
+   * BARCODE MANUAL
+   * ==========================================================
+   */
+
   function kirimBarcodeManual() {
-    const input = document.getElementById('manualBarcode');
-    const barcode = String(input.value || '').trim();
 
-    if (!validateBarcode(barcode)) {
-      setStatus('Barcode manual tidak valid.', 'error');
+    const input =
+      document.getElementById(
+        'manualBarcode'
+      );
+
+
+    if (!input) {
+      return;
+    }
+
+
+    const barcode =
+      String(
+        input.value || ''
+      ).trim();
+
+
+    if (!validasiBarcode(barcode)) {
+
+      setStatus(
+        'Barcode manual tidak valid.',
+        'error'
+      );
+
       input.focus();
+
       return;
     }
 
-    redirectWithBarcode(barcode);
+
+    redirectKeAppScript(
+      barcode
+    );
+
   }
 
-  // REDIRECT KE APLIKASI APOTEK
-  async function redirectWithBarcode(barcode) {
-    try {
-      await stopScanner();
-    } catch (error) {
-      console.warn('Scanner stop warning:', error);
-    }
 
-    const cleanReturnUrl = returnUrl.split('#')[0];
-    const target = cleanReturnUrl + '#barcode=' + encodeURIComponent(barcode);
+  /*
+   * ==========================================================
+   * STOP SCANNER
+   * ==========================================================
+   */
 
-    window.location.href = target;
-  }
-
-  // STOP CAMERA
   async function stopScanner() {
-    if (!scanner || !running) {
+
+    if (!html5QrCode) {
       return;
     }
 
-    try {
-      await scanner.stop();
-    } catch (error) {
-      console.warn('Gagal stop scanner:', error);
-    }
 
     try {
-      scanner.clear();
+
+      if (scannerRunning) {
+
+        await html5QrCode.stop();
+
+      }
+
     } catch (error) {
-      console.warn('Gagal clear scanner:', error);
+
+      console.warn(
+        'Stop scanner warning:',
+        error
+      );
+
     }
 
-    scanner = null;
-    running = false;
 
-    const reader = document.getElementById('reader');
+    try {
+
+      html5QrCode.clear();
+
+    } catch (error) {
+
+      console.warn(
+        'Clear scanner warning:',
+        error
+      );
+
+    }
+
+
+    html5QrCode = null;
+
+    scannerRunning = false;
+
+
+    const reader =
+      document.getElementById(
+        'reader'
+      );
+
+
     if (reader) {
       reader.innerHTML = '';
     }
+
+
+    setStatus(
+      'Scanner dihentikan.',
+      'warning'
+    );
+
   }
 
-  // AUTO START
-  window.addEventListener('load', function() {
-    if (!returnUrl) {
-      setStatus(
-        'Halaman scanner dibuka tanpa URL kembali aplikasi.',
-        'warning'
-      );
-      return;
-    }
-
-    startScanner();
-  });
 
 </script>
 
 </body>
+
 </html>
